@@ -50,6 +50,21 @@ object ModelData extends SimpleTestSuite {
    * ADD YOUR CODE HERE INSIDE THE OBJECT
    */
 
+
+  trait Tipo{}
+  case class Clubs() extends Tipo
+  case class Gold() extends Tipo
+  case class Sword() extends Tipo
+  case class Cups() extends Tipo
+
+  case class Card(tipo: Tipo, value: Int)
+
+  case class Hand(cardsOnHand: Seq[Card])
+  case class Table(cardsOnTable: Seq[Card])
+  case class Deck(cards: Seq[Card])
+
+  case class Player(hand: Hand)
+
   test("represent initial match state") {
     ignore("build the first player w/ 2 of Golds, 5 of Swords and 7 of Clubs")
     ignore("build the second player w/ 1 of Cups, 2 of Clubs and 9 of Golds")
