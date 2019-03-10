@@ -1,6 +1,5 @@
 package textGame
 
-import scala.annotation.tailrec
 import scala.io.StdIn._
 
 class Game {
@@ -25,6 +24,62 @@ class Game {
     case class GameWorld(player: Player, field: Field)
   }
 
+  sealed trait DirectionMovement
+  case object Up    extends DirectionMovement
+  case object Down  extends DirectionMovement
+  case object Left  extends DirectionMovement
+  case object Right extends DirectionMovement
+
+  sealed trait Command
+  case object Help extends Command
+  case object Show extends Command
+  case object Move extends Command
+  case object Quit extends Command
+
+  def parseDirection(direction: String): Option[DirectionMovement] =
+    direction match {
+      case "up"    => Some(Up)
+      case "down"  => Some(Down)
+      case "right" => Some(Right)
+      case "left"  => Some(Left)
+      case _ => {
+        println("Unknown direction")
+        None
+      }
+    }
+
+  def parseCommand(command: String): Option[Command] =
+    command match {
+      case "help" => Some(Help)
+      case "show" => Some(Show)
+      case "move" => Some(Move)
+      case "quit" => Some(Quit)
+      case _ =>
+        println("Unknown command")
+        gameStep()
+        None
+    }
+
+  def readCommand(): Array[String] =
+    readLine().trim.toLowerCase.split("\\s+")
+
+  def executeCommand(command: Command, input: Array[String]): Unit =
+    command match {
+      case Help => {
+        printHelp()
+        gameStep()
+      }
+      case Show => {
+        printWorld()
+        gameStep()
+      }
+      case Move => {
+        move(input)
+        gameStep()
+      }
+      case Quit => printQuit()
+    }
+
   object Logic {
 
     val enter = System.getProperty("line.separator")
@@ -46,70 +101,52 @@ class Game {
     def gameLoop(): Unit =
       gameStep()
 
-    @tailrec
     def gameStep(): Unit = {
+
       val line = readLine()
 
       if (line.length > 0) {
         val words = line.trim.toLowerCase.split("\\s+")
-        words(0) match {
 
-          case "help" => {
-            printHelp()
-            gameStep()
-          }
-
-          case "show" => {
-            printWorld()
-            gameStep()
-          }
-
-          case "move" => {
-            if (words.length < 2)
-              println("Missing direction")
-            else {
-              try {
-                words(1) match {
-                  case "up"    => move((-1, 0))
-                  case "down"  => move((1, 0))
-                  case "right" => move((0, 1))
-                  case "left"  => move((0, -1))
-                  case _       => println("Unknown direction")
-                }
-              } catch {
-                case e: Exception => println(e.getMessage)
-              }
-            }
-            gameStep()
-          }
-
-          case "quit" => {
-            printQuit()
-            return
-          }
-
-          case _ => {
-            println("Unknown command")
-            gameStep()
-          }
-
-        }
+        for {
+          command <- parseCommand(words(0))
+        } executeCommand(command, words)
       }
     }
 
-    def move(delta: (Int, Int)): Unit = {
-      val newX = world.player.x + delta._1
-      val newY = world.player.y + delta._2
+    def movePlayer(direction: DirectionMovement): Unit =
+      direction match {
+        case Up =>
+          if (world.player.y == 0) println("Invalid direction")
+          else {
+            world = world.copy(player = world.player.copy(y = world.player.y - 1))
+          }
+        case Down =>
+          if (world.player.y >= 19) println("Invalid direction")
+          else {
+            world = world.copy(player = world.player.copy(y = world.player.y + 1))
+          }
+        case Left =>
+          if (world.player.x == 0) println("Invalid direction")
+          else {
+            world = world.copy(player = world.player.copy(x = world.player.x - 1))
+          }
+        case Right =>
+          if (world.player.x >= 19) println("Invalid direction")
+          else {
+            world = world.copy(player = world.player.copy(x = world.player.x + 1))
+          }
+      }
 
-      val size = world.field.grid.size - 1
-      if (newX < 0
-        || newY < 0
-        || newX > size
-        || newY > size) throw new Exception("Invalid direction")
+    def move(array: Array[String]): Unit =
+      if (array.length == 2) {
+        for {
+          direction <- parseDirection(array(1))
+        } movePlayer(direction)
 
-      world.player.x = newX
-      world.player.y = newY
-    }
+      } else {
+        println("Missing direction")
+      }
 
     def printWorld(): Unit =
       println(renderWorld)
