@@ -8,7 +8,7 @@ class Game {
 
   object Domain {
 
-    case class Player(name: String, var x: Int, var y: Int)
+    case class Player(name: String, x: Int, y: Int)
 
     object Player {
       def begin(name: String) = Player(name, 0, 0)
@@ -42,13 +42,12 @@ class Game {
       case "down"  => Some(Down)
       case "right" => Some(Right)
       case "left"  => Some(Left)
-      case _ => {
-        println("Unknown direction")
-        None
-      }
+      case _ =>
+      println("Unknown direction")
+      None
     }
 
-  def parseCommand(command: String): Option[Command] =
+  def parseCommand(command: String, world: GameWorld): Option[Command] =
     command match {
       case "help" => Some(Help)
       case "show" => Some(Show)
@@ -56,39 +55,33 @@ class Game {
       case "quit" => Some(Quit)
       case _ =>
         println("Unknown command")
-        gameStep()
+        gameStep(world)
         None
     }
 
   def readCommand(): Array[String] =
     readLine().trim.toLowerCase.split("\\s+")
 
-  def executeCommand(command: Command, input: Array[String]): Unit =
+  def executeCommand(command: Command, input: Array[String], world: GameWorld): Unit =
     command match {
-      case Help => {
+      case Help =>
         printHelp()
-        gameStep()
-      }
-      case Show => {
-        printWorld()
-        gameStep()
-      }
-      case Move => {
-        move(input)
-        gameStep()
-      }
-      case Quit => printQuit()
+        gameStep(world)
+      case Show =>
+        printWorld(world)
+        gameStep(world)
+      case Move => gameStep(move(input, world))
+      case Quit => printQuit(world)
     }
 
   object Logic {
 
     val enter = System.getProperty("line.separator")
 
-    var world: GameWorld = null
-
-    def initWorld(): Unit = {
-      world = GameWorld(Player.begin(askName()), Field.mk20x20)
+    def initWorld(): GameWorld= {
+      val world = GameWorld(Player.begin(askName()), Field.mk20x20)
       println("Use commands to play")
+      world
     }
 
     def askName(): String = {
@@ -98,10 +91,10 @@ class Game {
       name
     }
 
-    def gameLoop(): Unit =
-      gameStep()
+    def gameLoop(world: GameWorld): Unit =
+      gameStep(world)
 
-    def gameStep(): Unit = {
+    def gameStep(world: GameWorld): Unit = {
 
       val line = readLine()
 
@@ -109,49 +102,57 @@ class Game {
         val words = line.trim.toLowerCase.split("\\s+")
 
         for {
-          command <- parseCommand(words(0))
-        } executeCommand(command, words)
+          command <- parseCommand(words(0), world)
+        } executeCommand(command, words, world)
       }
     }
 
-    def movePlayer(direction: DirectionMovement): Unit =
+    def movePlayer(direction: DirectionMovement, world: GameWorld): GameWorld =
       direction match {
         case Up =>
-          if (world.player.y == 0) println("Invalid direction")
-          else {
-            world = world.copy(player = world.player.copy(y = world.player.y - 1))
+          if (world.player.y == 0) {
+            println("Invalid direction")
+            world
+          } else {
+            world.copy(player = world.player.copy(y = world.player.y - 1))
           }
         case Down =>
-          if (world.player.y >= 19) println("Invalid direction")
-          else {
-            world = world.copy(player = world.player.copy(y = world.player.y + 1))
+          if (world.player.y >= 19) {
+            println("Invalid direction")
+            world
+          } else {
+            world.copy(player = world.player.copy(y = world.player.y + 1))
           }
         case Left =>
-          if (world.player.x == 0) println("Invalid direction")
-          else {
-            world = world.copy(player = world.player.copy(x = world.player.x - 1))
+          if (world.player.x == 0) {
+            println("Invalid direction")
+            world
+          } else {
+            world.copy(player = world.player.copy(x = world.player.x - 1))
           }
         case Right =>
-          if (world.player.x >= 19) println("Invalid direction")
-          else {
-            world = world.copy(player = world.player.copy(x = world.player.x + 1))
+          if (world.player.x >= 19) {
+            println("Invalid direction")
+            world
+          } else {
+            world.copy(player = world.player.copy(x = world.player.x + 1))
           }
       }
 
-    def move(array: Array[String]): Unit =
+    def move(array: Array[String], world: GameWorld): GameWorld=
       if (array.length == 2) {
-        for {
-          direction <- parseDirection(array(1))
-        } movePlayer(direction)
-
+        parseDirection(array(1))
+          .map(movePlayer(_, world))
+          .getOrElse(world)
       } else {
         println("Missing direction")
+        world
       }
 
-    def printWorld(): Unit =
-      println(renderWorld)
+    def printWorld(world: GameWorld): Unit =
+      println(renderWorld(world))
 
-    def printQuit(): Unit =
+    def printQuit(world: GameWorld): Unit =
       println(s"Bye bye ${world.player.name}!")
 
     def printHelp(): Unit = {
@@ -167,7 +168,7 @@ class Game {
       println(value)
     }
 
-    def renderWorld: String = {
+    def renderWorld(world: GameWorld): String = {
       val x       = world.player.x
       val y       = world.player.y
       val grid    = world.field.grid
@@ -178,7 +179,7 @@ class Game {
   }
 
   def run(): Unit = {
-    initWorld()
-    gameLoop()
+    val world = initWorld()
+    gameLoop(world)
   }
 }

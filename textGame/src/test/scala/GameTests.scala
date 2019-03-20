@@ -16,7 +16,7 @@ object GameTests extends SimpleTestSuite {
           |Bye bye Luke!
           |""".stripMargin
 
-    assertEquals(result, expected)
+    assertOutput(result, expected)
   }
 
   test("invoke help") {
@@ -37,7 +37,7 @@ object GameTests extends SimpleTestSuite {
           |Bye bye Luke!
           |""".stripMargin
 
-    assertEquals(result, expected)
+    assertOutput(result, expected)
   }
 
   test("invoke show") {
@@ -72,7 +72,7 @@ object GameTests extends SimpleTestSuite {
           |Bye bye Luke!
           |""".stripMargin
 
-    assertEquals(result, expected)
+    assertOutput(result, expected)
   }
 
   test("move downx2, rightx2, upx2, leftx2") {
@@ -119,7 +119,7 @@ object GameTests extends SimpleTestSuite {
           |Bye bye Luke!
           |""".stripMargin
 
-    assertEquals(result, expected)
+    assertOutput(result, expected)
   }
 
   test("move without direction") {
@@ -137,7 +137,7 @@ object GameTests extends SimpleTestSuite {
           |Bye bye Luke!
           |""".stripMargin
 
-    assertEquals(result, expected)
+    assertOutput(result, expected)
   }
 
   test("move out of grid (down)") {
@@ -153,7 +153,7 @@ object GameTests extends SimpleTestSuite {
           |Bye bye Luke!
           |""".stripMargin
 
-    assertEquals(result, expected)
+    assertOutput(result, expected)
   }
 
   test("move out of grid (up)") {
@@ -171,7 +171,7 @@ object GameTests extends SimpleTestSuite {
           |Bye bye Luke!
           |""".stripMargin
 
-    assertEquals(result, expected)
+    assertOutput(result, expected)
   }
 
   test("move out of grid (left)") {
@@ -189,7 +189,7 @@ object GameTests extends SimpleTestSuite {
           |Bye bye Luke!
           |""".stripMargin
 
-    assertEquals(result, expected)
+    assertOutput(result, expected)
   }
 
   test("move out of grid (right)") {
@@ -205,7 +205,7 @@ object GameTests extends SimpleTestSuite {
           |Bye bye Luke!
           |""".stripMargin
 
-    assertEquals(result, expected)
+    assertOutput(result, expected)
   }
 
   test("unknown command") {
@@ -223,7 +223,7 @@ object GameTests extends SimpleTestSuite {
           |Bye bye Luke!
           |""".stripMargin
 
-    assertEquals(result, expected)
+    assertOutput(result, expected)
   }
 
   test("unknown move direction") {
@@ -241,12 +241,14 @@ object GameTests extends SimpleTestSuite {
           |Bye bye Luke!
           |""".stripMargin
 
-    assertEquals(result, expected)
+    assertOutput(result, expected)
   }
 
+  private def assertOutput(actual: String, expected: String) =
+    assertEquals(cleanup(actual), cleanup(expected))
+
   private def input(value: String): String =
-    s"""|$value
-        |""".stripMargin
+    value + "\n"
 
   private def execute(inputs: String*): String = {
     val input = new StringReader(inputs.mkString(""))
@@ -256,6 +258,9 @@ object GameTests extends SimpleTestSuite {
         new Game().run()
       }
     }
-    out.toString
+    cleanup(out.toString)
   }
+
+  private def cleanup(value: String): String =
+    value.replace("\r\n", "\n")
 }
