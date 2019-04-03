@@ -8,77 +8,108 @@ class Game {
 
   object Domain {
 
-    case class Player(name: String, x: Int, y: Int)
+    sealed trait Box
 
-    object Player {
-      def begin(name: String) = Player(name, 0, 0)
+    case object EmptyBox extends Box {
+      override def toString: String = "-"
     }
 
-    case class Field(grid: Vector[Vector[String]])
+    case object PlayerBox extends Box {
+      override def toString: String = "x"
+    }
+
+    case class Position(x: Int, y: Int)
+
+    case class Player(name: String, position: Position)
+
+    object Player {
+      def begin(name: String) = Player(name, Position(0, 0))
+    }
+
+    case class Field(grid: Vector[Vector[Box]])
 
     object Field {
       def mk20x20 =
-        Field(Vector.fill(20, 20)("-"))
+        Field(Vector.fill(20, 20)(EmptyBox))
     }
 
     case class GameWorld(player: Player, field: Field)
   }
 
-  sealed trait DirectionMovement
-  case object Up    extends DirectionMovement
-  case object Down  extends DirectionMovement
-  case object Left  extends DirectionMovement
-  case object Right extends DirectionMovement
-
-  sealed trait Command
-  case object Help extends Command
-  case object Show extends Command
-  case object Move extends Command
-  case object Quit extends Command
-
-  def parseDirection(direction: String): Option[DirectionMovement] =
-    direction match {
-      case "up"    => Some(Up)
-      case "down"  => Some(Down)
-      case "right" => Some(Right)
-      case "left"  => Some(Left)
-      case _ =>
-      println("Unknown direction")
-      None
-    }
-
-  def parseCommand(command: String, world: GameWorld): Option[Command] =
-    command match {
-      case "help" => Some(Help)
-      case "show" => Some(Show)
-      case "move" => Some(Move)
-      case "quit" => Some(Quit)
-      case _ =>
-        println("Unknown command")
-        gameStep(world)
-        None
-    }
-
-  def readCommand(): Array[String] =
-    readLine().trim.toLowerCase.split("\\s+")
-
-  def executeCommand(command: Command, input: Array[String], world: GameWorld): Unit =
-    command match {
-      case Help =>
-        printHelp()
-        gameStep(world)
-      case Show =>
-        printWorld(world)
-        gameStep(world)
-      case Move => gameStep(move(input, world))
-      case Quit => printQuit(world)
-    }
-
   object Logic {
 
     val enter = System.getProperty("line.separator")
 
-    def initWorld(): GameWorld= {
+    sealed trait DirectionMovement
+    case object Up    extends DirectionMovement
+    case object Down  extends DirectionMovement
+    case object Left  extends DirectionMovement
+    case object Right extends DirectionMovement
+
+    sealed trait Command
+    case object Help                              extends Command
+    case object Show                              extends Command
+    case class Move(direction: DirectionMovement) extends Command
+    case object Quit                              extends Command
+
+    def parseDirection(direction: String): Option[DirectionMovement] =
+      direction match {
+        case "up"    => Some(Up)
+        case "down"  => Some(Down)
+        case "right" => Some(Right)
+        case "left"  => Some(Left)
+        case _ =>
+          println("Unknown direction")
+          None
+      }
+
+    sealed trait ParseResult
+    case class Valid(command: Command) extends ParseResult
+    case object UnknownCommand         extends ParseResult
+    case object UnknownDirection       extends ParseResult
+    case object MissingDirection       extends ParseResult
+    case object Empty                  extends ParseResult
+
+    def parseCommand(line: String): ParseResult =
+      if (line.length > 0) {
+        val words = line.trim.toLowerCase.split("\\s+")
+        words(0) match {
+          case "show" => Valid(Show)
+          case "move" =>
+            if (words.length == 2) {
+              words(1) match {
+                case "up"    => Valid(Move(Up))
+                case "down"  => Valid(Move(Down))
+                case "right" => Valid(Move(Right))
+                case "left"  => Valid(Move(Left))
+                case _       => UnknownDirection
+              }
+            } else {
+              MissingDirection
+            }
+          case "quit" => Valid(Quit)
+          case "help" => Valid(Help)
+          case _ =>
+            UnknownCommand
+        }
+      } else Empty
+
+    def readCommand(): Array[String] =
+      readLine().trim.toLowerCase.split("\\s+")
+
+    def executeCommand(command: Command, world: GameWorld): Unit =
+      command match {
+        case Help =>
+          printHelp()
+          gameStep(world)
+        case Show =>
+          printWorld(world)
+          gameStep(world)
+        case Move(direction) => gameStep(move(direction, world))
+        case Quit            => printQuit(world)
+      }
+
+    def initWorld(): GameWorld = {
       val world = GameWorld(Player.begin(askName()), Field.mk20x20)
       println("Use commands to play")
       world
@@ -95,59 +126,39 @@ class Game {
       gameStep(world)
 
     def gameStep(world: GameWorld): Unit = {
-
       val line = readLine()
-
-      if (line.length > 0) {
-        val words = line.trim.toLowerCase.split("\\s+")
-
-        for {
-          command <- parseCommand(words(0), world)
-        } executeCommand(command, words, world)
+      parseCommand(line) match {
+        case Valid(command)   => executeCommand(command, world)
+        case UnknownCommand   => println("Unknown command"); gameStep(world)
+        case UnknownDirection => println("Unknown direction"); gameStep(world)
+        case MissingDirection => println("Missing direction"); gameStep(world)
+        case Empty            => gameStep(world)
       }
     }
 
     def movePlayer(direction: DirectionMovement, world: GameWorld): GameWorld =
       direction match {
         case Up =>
-          if (world.player.y == 0) {
-            println("Invalid direction")
-            world
-          } else {
-            world.copy(player = world.player.copy(y = world.player.y - 1))
-          }
+          world.copy(player = world.player.copy(position = world.player.position.copy(y = world.player.position.y - 1)))
         case Down =>
-          if (world.player.y >= 19) {
-            println("Invalid direction")
-            world
-          } else {
-            world.copy(player = world.player.copy(y = world.player.y + 1))
-          }
+          world.copy(player = world.player.copy(position = world.player.position.copy(y = world.player.position.y + 1)))
         case Left =>
-          if (world.player.x == 0) {
-            println("Invalid direction")
-            world
-          } else {
-            world.copy(player = world.player.copy(x = world.player.x - 1))
-          }
+          world.copy(player = world.player.copy(position = world.player.position.copy(x = world.player.position.x - 1)))
         case Right =>
-          if (world.player.x >= 19) {
-            println("Invalid direction")
-            world
-          } else {
-            world.copy(player = world.player.copy(x = world.player.x + 1))
-          }
+          world.copy(player = world.player.copy(position = world.player.position.copy(x = world.player.position.x + 1)))
       }
 
-    def move(array: Array[String], world: GameWorld): GameWorld=
-      if (array.length == 2) {
-        parseDirection(array(1))
-          .map(movePlayer(_, world))
-          .getOrElse(world)
-      } else {
-        println("Missing direction")
-        world
-      }
+    def validateMovement(world: GameWorld): Option[GameWorld] =
+      if (world.player.position.x == world.field.grid.size
+          || world.player.position.x < 0
+          || world.player.position.y == world.field.grid.size
+          || world.player.position.y < 0) {
+        println("Invalid direction")
+        None
+      } else Some(world)
+
+    def move(direction: DirectionMovement, world: GameWorld): GameWorld =
+      validateMovement(movePlayer(direction, world)).getOrElse(world)
 
     def printWorld(world: GameWorld): Unit =
       println(renderWorld(world))
@@ -169,10 +180,10 @@ class Game {
     }
 
     def renderWorld(world: GameWorld): String = {
-      val x       = world.player.x
-      val y       = world.player.y
+      val x       = world.player.position.x
+      val y       = world.player.position.y
       val grid    = world.field.grid
-      val updated = grid.updated(x, grid(x).updated(y, "x"))
+      val updated = grid.updated(x, grid(x).updated(y, PlayerBox))
 
       enter + updated.map(_.mkString(" ")).mkString(enter) + enter
     }
