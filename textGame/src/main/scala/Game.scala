@@ -94,8 +94,8 @@ class Game {
         case Quit            => (Stop(printQuit(world)), world)
       }
 
-    def initWorld(): GameWorld = {
-      val world = GameWorld(Player.begin(askName()), Field.mk20x20)
+    def initWorld(playerName: String): GameWorld = {
+      val world = GameWorld(Player.begin(playerName), Field.mk20x20)
       world
     }
 
@@ -182,9 +182,19 @@ class Game {
   }
 
   def run(): Unit = {
-    val world = initWorld()
-    println("Use commands to play")
+    val playerName: String = startAskName
+    playGame(playerName)
 
+  }
+
+  private def playGame(playerName: String): Unit = {
+    val world = initWorld(playerName)
     gameLoop(world)
+  }
+
+  private def startAskName: String = {
+    val playerName = askName()
+    println("Use commands to play")
+    playerName
   }
 }

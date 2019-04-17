@@ -72,5 +72,6 @@ lazy val resolversSettings = Seq(
 )
 
 lazy val libsSettings = Seq(
+  "org.typelevel" %% "cats-effect" % "1.2.0",
   "io.monix" %% "minitest" % "2.2.2" % Test
 )
