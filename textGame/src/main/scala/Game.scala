@@ -52,17 +52,6 @@ class Game {
     case class Move(direction: DirectionMovement) extends Command
     case object Quit                              extends Command
 
-    def parseDirection(direction: String): Option[DirectionMovement] =
-      direction match {
-        case "up"    => Some(Up)
-        case "down"  => Some(Down)
-        case "right" => Some(Right)
-        case "left"  => Some(Left)
-        case _ =>
-          println("Unknown direction")
-          None
-      }
-
     sealed trait ParseResult
     case class Valid(command: Command) extends ParseResult
     case object UnknownCommand         extends ParseResult
@@ -97,21 +86,16 @@ class Game {
     def readCommand(): Array[String] =
       readLine().trim.toLowerCase.split("\\s+")
 
-    def executeCommand(command: Command, world: GameWorld): Unit =
+    def executeCommand(command: Command, world: GameWorld): (GameDecision, GameWorld) =
       command match {
-        case Help =>
-          printHelp()
-          gameStep(world)
-        case Show =>
-          printWorld(world)
-          gameStep(world)
-        case Move(direction) => gameStep(move(direction, world))
-        case Quit            => printQuit(world)
+        case Help            => (ContinuePrinting(possibleCommands()), world)
+        case Show            => (ContinuePrinting(printWorld(world)), world)
+        case Move(direction) => move(direction, world)
+        case Quit            => (Stop(printQuit(world)), world)
       }
 
     def initWorld(): GameWorld = {
       val world = GameWorld(Player.begin(askName()), Field.mk20x20)
-      println("Use commands to play")
       world
     }
 
@@ -123,16 +107,25 @@ class Game {
     }
 
     def gameLoop(world: GameWorld): Unit =
-      gameStep(world)
+      gameStep(world) match {
+        case (ContinuePrinting(value), gameWorld) => println(value); gameLoop(gameWorld)
+        case (Continue, gameWorld)                => gameLoop(gameWorld)
+        case (Stop(x), _)                         => println(x)
+      }
 
-    def gameStep(world: GameWorld): Unit = {
+    sealed trait GameDecision
+    case object Continue                        extends GameDecision
+    case class ContinuePrinting(string: String) extends GameDecision
+    case class Stop(string: String)             extends GameDecision
+
+    def gameStep(world: GameWorld): (GameDecision, GameWorld) = {
       val line = readLine()
       parseCommand(line) match {
         case Valid(command)   => executeCommand(command, world)
-        case UnknownCommand   => println("Unknown command"); gameStep(world)
-        case UnknownDirection => println("Unknown direction"); gameStep(world)
-        case MissingDirection => println("Missing direction"); gameStep(world)
-        case Empty            => gameStep(world)
+        case UnknownCommand   => (ContinuePrinting("Unknown command"), world)
+        case UnknownDirection => (ContinuePrinting("Unknown direction"), world)
+        case MissingDirection => (ContinuePrinting("Missing direction"), world)
+        case Empty            => (Continue, world)
       }
     }
 
@@ -153,31 +146,30 @@ class Game {
           || world.player.position.x < 0
           || world.player.position.y == world.field.grid.size
           || world.player.position.y < 0) {
-        println("Invalid direction")
         None
       } else Some(world)
 
-    def move(direction: DirectionMovement, world: GameWorld): GameWorld =
-      validateMovement(movePlayer(direction, world)).getOrElse(world)
+    def move(direction: DirectionMovement, world: GameWorld): (GameDecision, GameWorld) =
+      validateMovement(movePlayer(direction, world)) match {
+        case Some(gameWorld) => (Continue, gameWorld)
+        case None            => (ContinuePrinting("Invalid direction"), world)
+      }
 
-    def printWorld(world: GameWorld): Unit =
-      println(renderWorld(world))
+    def printWorld(world: GameWorld): String =
+      renderWorld(world)
 
-    def printQuit(world: GameWorld): Unit =
-      println(s"Bye bye ${world.player.name}!")
+    def printQuit(world: GameWorld): String =
+      s"Bye bye ${world.player.name}!"
 
-    def printHelp(): Unit = {
-      val value =
-        s"""|
-            |Valid commands:
-            |
-            | help
-            | show
-            | move <up|down|left|right>
-            | quit
-            |""".stripMargin
-      println(value)
-    }
+    def possibleCommands(): String =
+      s"""|
+          |Valid commands:
+          |
+          | help
+          | show
+          | move <up|down|left|right>
+          | quit
+          |""".stripMargin
 
     def renderWorld(world: GameWorld): String = {
       val x       = world.player.position.x
@@ -191,6 +183,8 @@ class Game {
 
   def run(): Unit = {
     val world = initWorld()
+    println("Use commands to play")
+
     gameLoop(world)
   }
 }
